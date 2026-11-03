@@ -13,22 +13,7 @@ export const ReactiveFlags = {
 };
 
 export function createReactiveSystem({ update, notify, unwatched }) {
-  const system = {
-    update,
-    notify,
-    unwatched,
-  };
-  return {
-    link: (dep, sub, version) => System.link(system, dep, sub, version),
-    unlink: (link, sub) => System.unlink(system, link, sub),
-    propagate: (link, innerWrite) => System.propagate(system, link, innerWrite),
-    checkDirty: (link, sub) => System.checkDirty(system, link, sub),
-    shallowPropagate: (link) => System.shallowPropagate(system, link),
-  };
-}
-
-const System = {
-  link(system, dep, sub, version) {
+  function link(dep, sub, version) {
     const prevDep = sub.depsTail;
     if (prevDep != null && prevDep.dep === dep) {
       return;
@@ -67,9 +52,9 @@ const System = {
     } else {
       dep.subs = newLink;
     }
-  },
+  }
 
-  unlink(system, link, sub) {
+  function unlink(link, sub) {
     sub ??= link.sub;
     const dep = link.dep;
     const prevDep = link.prevDep;
@@ -97,13 +82,13 @@ const System = {
       const watched = nextSub != null;
       dep.subs = nextSub;
       if (!watched) {
-        (0, system.unwatched)(dep);
+        unwatched(dep);
       }
     }
     return nextDep;
-  },
+  }
 
-  propagate(system, link, innerWrite) {
+  function propagate(link, innerWrite) {
     let next = link.nextSub;
     let stack;
 
@@ -120,7 +105,7 @@ const System = {
         flags = 0;
       } else if (!(flags & 4)) {
         sub.flags = (flags & ~8) | 32;
-      } else if (!(flags & (16 | 32)) && System.isValidLink(system, link, sub)) {
+      } else if (!(flags & (16 | 32)) && isValidLink(link, sub)) {
         sub.flags = flags | (8 | 32);
         flags &= 1;
       } else {
@@ -128,7 +113,7 @@ const System = {
       }
 
       if (flags & 2) {
-        (0, system.notify)(sub);
+        notify(sub);
       }
 
       if (flags & 1) {
@@ -165,9 +150,9 @@ const System = {
       }
       return;
     }
-  },
+  }
 
-  checkDirty(system, link, sub) {
+  function checkDirty(link, sub) {
     let stack;
     let checkDepth = 0;
     let dirty = false;
@@ -180,10 +165,10 @@ const System = {
         dirty = true;
       } else if ((flags & (1 | 16)) === (1 | 16)) {
         const subs = dep.subs;
-        if ((0, system.update)(dep)) {
+        if (update(dep)) {
           const subs$1 = $unwrap(subs);
           if (subs$1.nextSub != null) {
-            System.shallowPropagate(system, subs$1);
+            shallowPropagate(subs$1);
           }
           dirty = true;
         }
@@ -214,10 +199,10 @@ const System = {
         stack = top.prev;
         if (dirty) {
           const subs = sub.subs;
-          if ((0, system.update)(sub)) {
+          if (update(sub)) {
             const subs$1 = $unwrap(subs);
             if (subs$1.nextSub != null) {
-              System.shallowPropagate(system, subs$1);
+              shallowPropagate(subs$1);
             }
             sub = link.sub;
             continue;
@@ -236,16 +221,16 @@ const System = {
 
       return dirty && sub.flags !== 0;
     }
-  },
+  }
 
-  shallowPropagate(system, link) {
+  function shallowPropagate(link) {
     while (true) {
       const sub = link.sub;
       const flags = sub.flags;
       if ((flags & (32 | 16)) === 32) {
         sub.flags = flags | 16;
         if ((flags & (2 | 4)) === 2) {
-          (0, system.notify)(sub);
+          notify(sub);
         }
       }
       const nextSub = link.nextSub;
@@ -254,9 +239,9 @@ const System = {
       }
       link = nextSub;
     }
-  },
+  }
 
-  isValidLink(system, checkLink, sub) {
+  function isValidLink(checkLink, sub) {
     let link = sub.depsTail;
     while (link != null) {
       if (link === checkLink) {
@@ -265,6 +250,14 @@ const System = {
       link = link.prevDep;
     }
     return false;
-  },
-};
+  }
+
+  return {
+    link: (dep, sub, version) => link(dep, sub, version),
+    unlink: (link, sub) => unlink(link, sub),
+    propagate: (link, innerWrite) => propagate(link, innerWrite),
+    checkDirty: (link, sub) => checkDirty(link, sub),
+    shallowPropagate: (link) => shallowPropagate(link),
+  };
+}
 //# sourceMappingURL=system.js.map
