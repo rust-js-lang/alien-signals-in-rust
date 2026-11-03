@@ -27,12 +27,23 @@ TypeScript doesn't check:
   is read, as Rust's indexing panics past the end.
 - **`let .. else { unreachable!() }`** throws Rust's ``internal error:
   entered unreachable code`` where upstream's node is of the kind it tests.
+- **`take()` empties the slot before `unwrap()` checks it**, `const old =
+  queued[index]; queued[index] = undefined; const effect = $unwrap(old);`,
+  as Rust's `queued[i].take().unwrap()` does, where upstream reads the
+  effect with `!` first.
 
 And where Rust writes it otherwise: no assignment in a condition, `const
 watched = nextSub != null`; no chained assignment; a `loop` whose end
 tests a binding, `while (true) { .. break; }`, for upstream's `do { .. }
 while ((link = link.nextSub!) !== undefined)`; and `Vec`'s growth by
 `push`, `if (i < queued.length) queued[i] = e; else queued.push(e);`.
+
+`NodeKind` is exported, as a `pub` type Rust's `get_active_sub` gives is.
+And `unlink` reads a link's fields one `const` each, `const dep =
+link.dep; const prevDep = link.prevDep;`, where upstream destructures
+them, as each is a `let` of its own in Rust (rust-js ADR 0598, #534).
+
+The user accepted each of these differences (2026-11-03).
 
 ## Performance
 
@@ -64,6 +75,11 @@ where each was a method of an object given the state,
 `System.link(system, ..)`, calling `(0, system.update)(dep)`; and it
 returns them, `{ link, unlink, propagate, checkDirty, shallowPropagate }`,
 where each was an arrow calling it.
+
+#533 made the module's functions that each call one of the system's,
+`function link(dep, sub, version) { system.link(dep, sub, version); }`,
+the system taken apart where it's made, upstream's `const { link, unlink,
+propagate, checkDirty, shallowPropagate } = createReactiveSystem({ .. })`.
 
 #524 made `queued[a..b].reverse()` in `notify` a swap in place,
 `$reverseRange(queued, a, b)`, where it had made a `Proxy` view on every
