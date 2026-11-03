@@ -1,0 +1,7 @@
+# The JS rust-js writes beside the Rust is committed; its maps aren't.
+*.js.map
+
+/target
+/Cargo.lock
+/.cargo
+/node_modules

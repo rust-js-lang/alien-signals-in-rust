@@ -1,0 +1,9 @@
+{
+  "name": "alien-signals-in-rust",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "reactive-framework-test-suite": "0.0.2",
+    "vitest": "5.0.2"
+  }
+}

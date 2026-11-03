@@ -1,0 +1,19 @@
+# alien-signals, a crate whose modules are its files: `src/index.rs` and
+# `src/system.rs`, beside the JS rust-js writes from them, `src/index.js`
+# and `src/system.js`. rust-js is a checkout beside this one.
+[package]
+name = "alien-signals"
+version = "3.2.1"
+edition = "2024"
+license = "MIT"
+description = "The lightest signal library."
+publish = false
+
+[lib]
+path = "src/index.rs"
+
+[dependencies]
+js = { package = "rust-js-builtins", path = "../rust-js/builtins" }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_js)"] }
