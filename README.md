@@ -12,6 +12,28 @@ node ../rust-js/tooling/cli.js build   # rust-js is a checkout beside this one
 npx vitest run                         # upstream's suite, 202 tests
 ```
 
+## Differences from upstream
+
+Where the generated JavaScript does what the Rust does, which upstream's
+TypeScript doesn't check:
+
+- **`Option::unwrap()` is Rust's check of upstream's `!`**: `const subs$1 =
+  $unwrap(subs)` throws ``called `Option::unwrap()` on a `None` value``
+  where upstream's `dep.subs!` would go on with `undefined` (rust-js #531,
+  kept).
+- **Counters wrap as `u32` and `i32` do**, `(insertIndex + 1) >>> 0`,
+  `| 0`.
+- **An index is checked**, `$index(queued, index)`, before `queued[index]`
+  is read, as Rust's indexing panics past the end.
+- **`let .. else { unreachable!() }`** throws Rust's ``internal error:
+  entered unreachable code`` where upstream's node is of the kind it tests.
+
+And where Rust writes it otherwise: no assignment in a condition, `const
+watched = nextSub != null`; no chained assignment; a `loop` whose end
+tests a binding, `while (true) { .. break; }`, for upstream's `do { .. }
+while ((link = link.nextSub!) !== undefined)`; and `Vec`'s growth by
+`push`, `if (i < queued.length) queued[i] = e; else queued.push(e);`.
+
 ## Performance
 
 Each update of a grid of computeds is timed, `w` chains of `h` computeds
