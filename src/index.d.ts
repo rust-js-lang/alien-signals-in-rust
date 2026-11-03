@@ -7,7 +7,7 @@ export type NodeKind = {
     pendingValue: unknown | null | undefined;
 } | {
     value: unknown | null | undefined;
-    getter: (value: unknown | null | undefined) => unknown | null | undefined;
+    getter: (value?: unknown | null | undefined) => unknown | null | undefined;
 } | {
     fn: () => (() => void) | null | undefined;
     cleanup: (() => void) | null | undefined;
@@ -33,7 +33,7 @@ export function isEffectScope(fn: () => void): boolean;
 
 export function signal(initialValue?: unknown | null | undefined): (...args: (unknown | null | undefined)[]) => unknown | null | undefined;
 
-export function computed(getter: (value: unknown | null | undefined) => unknown | null | undefined): () => unknown | null | undefined;
+export function computed(getter: (value?: unknown | null | undefined) => unknown | null | undefined): () => unknown | null | undefined;
 
 export function effect(fn: () => (() => void) | null | undefined): () => void;
 

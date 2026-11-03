@@ -438,7 +438,7 @@ fn computed_oper(this: &Node) -> Value {
     value.get()
 }
 
-fn signal_oper(this: &Node, value: &[Value]) -> Value {
+fn signal_oper(this: &Node, #[cfg_attr(rust_js, rust_js::rest)] value: &[Value]) -> Value {
     let NodeKind::Signal {
         current_value,
         pending_value,

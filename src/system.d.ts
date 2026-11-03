@@ -30,15 +30,15 @@ export const ReactiveFlags: {
 
 export interface ReactiveSystemOptions<K> {
     update: (node: ReactiveNode<K>) => boolean;
-    notify: (node: ReactiveNode<K>) => void;
+    notify: (effect: ReactiveNode<K>) => void;
     unwatched: (node: ReactiveNode<K>) => void;
 }
 
 export interface ReactiveSystem<K> {
-    link: (node: ReactiveNode<K>, node2: ReactiveNode<K>, value: number) => void;
-    unlink: (link: Link<K>, value: ReactiveNode<K> | null | undefined) => Link<K> | null | undefined;
-    propagate: (link: Link<K>, value: boolean) => void;
-    checkDirty: (link: Link<K>, node: ReactiveNode<K>) => boolean;
+    link: (dep: ReactiveNode<K>, sub: ReactiveNode<K>, version: number) => void;
+    unlink: (link: Link<K>, sub?: ReactiveNode<K> | null | undefined) => Link<K> | null | undefined;
+    propagate: (link: Link<K>, innerWrite: boolean) => void;
+    checkDirty: (link: Link<K>, sub: ReactiveNode<K>) => boolean;
     shallowPropagate: (link: Link<K>) => void;
 }
 

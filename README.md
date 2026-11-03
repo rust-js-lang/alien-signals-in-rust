@@ -43,7 +43,17 @@ And `unlink` reads a link's fields one `const` each, `const dep =
 link.dep; const prevDep = link.prevDep;`, where upstream destructures
 them, as each is a `let` of its own in Rust (rust-js ADR 0598, #534).
 
-The user accepted each of these differences (2026-11-03).
+In the `.d.ts`, a function type's parameters are named as the Rust names
+them (rust-js #543, ADR 1075): `ReactiveSystem`'s are upstream's, `link:
+(dep, sub, version)`, as `create_reactive_system`'s closures name them, but
+`ReactiveSystemOptions`' are those of the closures index.rs fills it with,
+`update: (node)`, `notify: (effect)`, `unwatched: (node)`, where upstream's
+type says `(sub)`. Rust's `dyn Fn(..)` can't name its own. And `computed`'s
+getter, an `impl Fn` JS fills, is named by its type, `(value?: ..)`, where
+upstream writes `(previousValue?: T)`.
+
+The user accepted each of these differences (2026-11-03; the `.d.ts` names
+2026-11-03, the coordinator on the user's behalf).
 
 ## Performance
 
