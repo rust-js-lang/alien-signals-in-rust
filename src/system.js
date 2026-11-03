@@ -253,11 +253,11 @@ export function createReactiveSystem({ update, notify, unwatched }) {
   }
 
   return {
-    link: (dep, sub, version) => link(dep, sub, version),
-    unlink: (link, sub) => unlink(link, sub),
-    propagate: (link, innerWrite) => propagate(link, innerWrite),
-    checkDirty: (link, sub) => checkDirty(link, sub),
-    shallowPropagate: (link) => shallowPropagate(link),
+    link,
+    unlink,
+    propagate,
+    checkDirty,
+    shallowPropagate,
   };
 }
 //# sourceMappingURL=system.js.map

@@ -24,22 +24,24 @@ The port's time as a multiple of upstream's, each run beside upstream's:
 
 | | before rust-js #499 | after #499 | after #501 and #524 | after #500 |
 |---|---|---|---|---|
-| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.4–1.5× |
+| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× |
 | propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× |
 | propagate 100×10 | | | 0.9–1.1× | 1.1× |
-| propagate 10×100 | | | 1.2× | 1.0–1.1× |
+| propagate 10×100 | | | 1.2× | 1.05–1.1× |
 | propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× |
-| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.4–1.5× |
+| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× |
 
-Today's times, upstream then the port: 1×1 0.025–0.031 µs and 0.036–0.046
-µs; 100×100 282–286 µs and 304–320 µs; creating 100k, 18–20 ms and 27 ms
-(the best of five, 8–9 ms and 7 ms).
+Today's times, upstream then the port: 1×1 0.031–0.032 µs and 0.034–0.037
+µs; 100×100 290–292 µs and 315–317 µs; creating 100k, 20 ms and 27 ms
+(the best of five, 9 ms and 7 ms).
 
 #500 made `createReactiveSystem`'s scope struct, `System<K>`, generic over
 the node's kind, its functions: `link`, `propagate` and the rest are
 declared in it, calling each other and its callbacks by name, `update(dep)`,
 where each was a method of an object given the state,
-`System.link(system, ..)`, calling `(0, system.update)(dep)`.
+`System.link(system, ..)`, calling `(0, system.update)(dep)`; and it
+returns them, `{ link, unlink, propagate, checkDirty, shallowPropagate }`,
+where each was an arrow calling it.
 
 #524 made `queued[a..b].reverse()` in `notify` a swap in place,
 `$reverseRange(queued, a, b)`, where it had made a `Proxy` view on every
