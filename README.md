@@ -55,14 +55,14 @@ Node 24, on a loaded machine, so compare the ratios.
 
 The port's time as a multiple of upstream's, each run beside upstream's:
 
-| | before rust-js #499 | after #499 | after #501 and #524 | after #500 |
-|---|---|---|---|---|
-| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× |
-| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× |
-| propagate 100×10 | | | 0.9–1.1× | 1.1× |
-| propagate 10×100 | | | 1.2× | 1.05–1.1× |
-| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× |
-| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× |
+| | before rust-js #499 | after #499 | after #501 and #524 | after #500 | after #503 (#542) |
+|---|---|---|---|---|---|
+| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× | 2.3–2.7× |
+| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× | 1.5× |
+| propagate 100×10 | | | 0.9–1.1× | 1.1× | 1.4× |
+| propagate 10×100 | | | 1.2× | 1.05–1.1× | 1.1–1.2× |
+| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× | 1.2× |
+| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× | 3.3× (best of five 5×) |
 
 Today's times, upstream then the port: 1×1 0.031–0.032 µs and 0.034–0.037
 µs; 100×100 290–292 µs and 315–317 µs; creating 100k, 20 ms and 27 ms
@@ -75,6 +75,11 @@ where each was a method of an object given the state,
 `System.link(system, ..)`, calling `(0, system.update)(dep)`; and it
 returns them, `{ link, unlink, propagate, checkDirty, shallowPropagate }`,
 where each was an arrow calling it.
+
+#503 made an effect's `cleanup` a plain field, as upstream's is, but each
+of its borrows is a checked cell, `$fieldCell(e, "cleanup")`, which is all
+of the last column's slowdown: with it written `e.cleanup`, each time is
+as before (rust-js #542).
 
 #533 made the module's functions that each call one of the system's,
 `function link(dep, sub, version) { system.link(dep, sub, version); }`,
