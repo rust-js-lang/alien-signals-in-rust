@@ -50,10 +50,20 @@ them (rust-js #543, ADR 1075): `ReactiveSystem`'s are upstream's, `link:
 `update: (node)`, `notify: (effect)`, `unwatched: (node)`, where upstream's
 type says `(sub)`. Rust's `dyn Fn(..)` can't name its own. And `computed`'s
 getter, an `impl Fn` JS fills, is named by its type, `(value?: ..)`, where
-upstream writes `(previousValue?: T)`.
+upstream writes `(previousValue?: T)`; `NodeKind`'s, the closure `computed`
+boxes it in, by that closure's, `(previous?: ..)`.
+
+`signal` and `computed` are generic, as upstream's are: `signal<T>(initialValue:
+T): (...args: T[]) => T | null | undefined` and `computed<T>(getter: (value?:
+T | null | undefined) => T): () => T`. Rust has no overloads, so where
+upstream declares three for `signal`, of no initial value, and a signal that
+reads `(): T` and writes `(value: T): void`, the port declares the one
+closure, of rest arguments, which gives what it read, or nothing where it
+wrote. In Rust a value is an `Rc<T>`, shared as upstream's objects are,
+which a read clones: `*count()`.
 
 The user accepted each of these differences (2026-11-03; the `.d.ts` names
-2026-11-03, the coordinator on the user's behalf).
+2026-11-03, and the generic API 2026-11-04, the coordinator on the user's behalf).
 
 ## Performance
 
@@ -65,18 +75,21 @@ Node 24, on a loaded machine, so compare the ratios.
 
 The port's time as a multiple of upstream's, each run beside upstream's:
 
-| | before rust-js #499 | after #499 | after #501 and #524 | after #500 | after #503 (#542) | after #542 |
-|---|---|---|---|---|---|---|
-| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× | 2.3–2.7× | 1.05–1.15× |
-| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× | 1.5× | 1.15× |
-| propagate 100×10 | | | 0.9–1.1× | 1.1× | 1.4× | 1.1–1.15× |
-| propagate 10×100 | | | 1.2× | 1.05–1.1× | 1.1–1.2× | 1.1× |
-| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× | 1.2× | 1.1× |
-| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× | 3.3× (best of five 5×) | 1.1–1.2× (best of five 0.8×) |
+| | before rust-js #499 | after #499 | after #501 and #524 | after #500 | after #503 (#542) | after #542 | generic API (B4) |
+|---|---|---|---|---|---|---|---|
+| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× | 2.3–2.7× | 1.05–1.15× | 1.05× |
+| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× | 1.5× | 1.15× | 1.2× |
+| propagate 100×10 | | | 0.9–1.1× | 1.1× | 1.4× | 1.1–1.15× | 1.2–1.3× |
+| propagate 10×100 | | | 1.2× | 1.05–1.1× | 1.1–1.2× | 1.1× | 1.1–1.5× |
+| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× | 1.2× | 1.1× | 1.3–1.4× |
+| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× | 3.3× (best of five 5×) | 1.1–1.2× (best of five 0.8×) | 1.0–1.1× (best of five 0.7×) |
 
-Today's times (after rust-js #542, 2026-11-04), upstream then the port:
-1×1 0.031 µs and 0.033–0.035 µs; 100×100 279–284 µs and 313–319 µs;
-creating 100k, 19–21 ms and 22–23 ms (the best of five, 9 ms and 7 ms).
+Today's times (the generic API, 2026-11-04), upstream then the port: 1×1
+0.037 µs and 0.039 µs; 100×100 291–295 µs and 374–412 µs; creating 100k,
+24–25 ms and 25–26 ms (the best of five, 11 ms and 8 ms). The generic API
+writes the JavaScript #542's did, byte for byte, so its column differs from
+#542's by the machine's load alone, heavier this run; a second run was
+three to ten times slower for both and isn't counted.
 
 #500 made `createReactiveSystem`'s scope struct, `System<K>`, generic over
 the node's kind, its functions: `link`, `propagate` and the rest are

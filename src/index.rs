@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use js::{IntoUnknown, Rest, Unknown};
+use js::{Rest, Unknown};
 
 pub mod system;
 
@@ -143,11 +143,11 @@ pub fn end_batch() {
 }
 
 pub fn is_signal(r#fn: &dyn Fn()) -> bool {
-    js::function::name(r#fn) == format!("bound {}", js::function::name(&signal_oper))
+    js::function::name(r#fn) == format!("bound {}", js::function::name(&signal_oper::<()>))
 }
 
 pub fn is_computed(r#fn: &dyn Fn()) -> bool {
-    js::function::name(r#fn) == format!("bound {}", js::function::name(&computed_oper))
+    js::function::name(r#fn) == format!("bound {}", js::function::name(&computed_oper::<()>))
 }
 
 pub fn is_effect(r#fn: &dyn Fn()) -> bool {
@@ -158,11 +158,12 @@ pub fn is_effect_scope(r#fn: &dyn Fn()) -> bool {
     js::function::name(r#fn) == format!("bound {}", js::function::name(&effect_scope_oper))
 }
 
-pub fn signal(initial_value: Value) -> impl Fn(&dyn Rest<dyn IntoUnknown>) -> Value {
+pub fn signal<T: 'static>(initial_value: T) -> impl Fn(&dyn Rest<Rc<T>>) -> Option<Rc<T>> {
+    let initial_value = Rc::new(initial_value);
     let this = Rc::new(ReactiveNode {
         kind: NodeKind::Signal {
-            current_value: Cell::new(initial_value),
-            pending_value: Cell::new(initial_value),
+            current_value: Cell::new(js::any_of(Rc::clone(&initial_value))),
+            pending_value: Cell::new(js::any_of(initial_value)),
         },
         subs: RefCell::new(None),
         subs_tail: RefCell::new(None),
@@ -170,14 +171,19 @@ pub fn signal(initial_value: Value) -> impl Fn(&dyn Rest<dyn IntoUnknown>) -> Va
         deps_tail: RefCell::new(None),
         flags: Cell::new(ReactiveFlags::MUTABLE),
     });
-    move |value: &dyn Rest<dyn IntoUnknown>| signal_oper(&this, value)
+    move |value: &dyn Rest<Rc<T>>| signal_oper(&this, value)
 }
 
-pub fn computed(getter: impl Fn(Value) -> Value + 'static) -> impl Fn() -> Value {
+pub fn computed<T: 'static>(getter: impl Fn(Option<Rc<T>>) -> T + 'static) -> impl Fn() -> Rc<T> {
     let this = Rc::new(ReactiveNode {
         kind: NodeKind::Computed {
             value: Cell::new(None),
-            getter: Box::new(getter),
+            getter: Box::new(move |previous: Value| {
+                // SAFETY: a computed's value is what its getter gave, an `Rc<T>` (ADR 0909).
+                let previous = previous
+                    .map(|previous| Rc::clone(unsafe { js::cast::<&Rc<T>>(Some(previous)) }));
+                js::any_of(Rc::new(getter(previous)))
+            }),
         },
         subs: RefCell::new(None),
         subs_tail: RefCell::new(None),
@@ -185,7 +191,7 @@ pub fn computed(getter: impl Fn(Value) -> Value + 'static) -> impl Fn() -> Value
         deps_tail: RefCell::new(None),
         flags: Cell::new(ReactiveFlags::NONE),
     });
-    move || computed_oper(&this)
+    move || computed_oper::<T>(&this)
 }
 
 pub fn effect(r#fn: impl Fn() -> Option<Rc<dyn Fn()>> + 'static) -> impl Fn() {
@@ -396,7 +402,7 @@ fn flush() {
     }
 }
 
-fn computed_oper(this: &Node) -> Value {
+fn computed_oper<T: 'static>(this: &Node) -> Rc<T> {
     let NodeKind::Computed { value, getter } = &this.kind else {
         unreachable!()
     };
@@ -435,10 +441,14 @@ fn computed_oper(this: &Node) -> Value {
     if let Some(sub) = sub {
         link(this, &sub, CYCLE.get());
     }
-    value.get()
+    // SAFETY: a computed's value is what its getter gave, an `Rc<T>` (ADR 0909).
+    Rc::clone(unsafe { js::cast::<&Rc<T>>(value.get()) })
 }
 
-fn signal_oper(this: &Node, #[cfg_attr(rust_js, rust_js::rest)] value: &[Value]) -> Value {
+fn signal_oper<T: 'static>(
+    this: &Node,
+    #[cfg_attr(rust_js, rust_js::rest)] value: &[Rc<T>],
+) -> Option<Rc<T>> {
     let NodeKind::Signal {
         current_value,
         pending_value,
@@ -447,7 +457,10 @@ fn signal_oper(this: &Node, #[cfg_attr(rust_js, rust_js::rest)] value: &[Value])
         unreachable!()
     };
     if !value.is_empty() {
-        if !js::strict_equals(pending_value.replace(value[0]), pending_value.get()) {
+        if !js::strict_equals(
+            pending_value.replace(js::any_of(Rc::clone(&value[0]))),
+            pending_value.get(),
+        ) {
             this.flags
                 .set(ReactiveFlags::MUTABLE | ReactiveFlags::DIRTY);
             let subs = this.subs.borrow().clone();
@@ -470,7 +483,10 @@ fn signal_oper(this: &Node, #[cfg_attr(rust_js, rust_js::rest)] value: &[Value])
         if let Some(sub) = sub {
             link(this, &sub, CYCLE.get());
         }
-        current_value.get()
+        // SAFETY: a signal's value is one it was given, an `Rc<T>` (ADR 0909).
+        Some(Rc::clone(unsafe {
+            js::cast::<&Rc<T>>(current_value.get())
+        }))
     }
 }
 
