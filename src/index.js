@@ -19,10 +19,10 @@ let activeSub;
 const queued = [];
 const system = createReactiveSystem({
   update(node) {
-    if (node.kind.TAG === "Signal") {
+    if ("currentValue" in node) {
       return updateSignal(node);
     }
-    if (node.kind.TAG === "Computed") {
+    if ("getter" in node) {
       return updateComputed(node);
     }
     node.flags = 1;
@@ -52,14 +52,14 @@ const system = createReactiveSystem({
     $view(queued, firstInsertedIndex, insertIndex).reverse();
   },
   unwatched(node) {
-    if (node.kind.TAG === "Computed") {
+    if ("getter" in node) {
       if ($borrow($fieldCell(node, "depsTail")).value != null) {
         node.flags = 1 | 16;
         disposeAllDepsInReverse(node);
       }
-    } else if (node.kind.TAG === "Signal") {
+    } else if ("currentValue" in node) {
       // Nothing to do for signals, they are always mutable and never dirty until pendingValue changes
-    } else if (node.kind.TAG === "Effect") {
+    } else if ("fn" in node) {
       effectOper(node);
     } else {
       effectScopeOper(node);
@@ -128,41 +128,42 @@ export function isEffectScope(fn) {
   return fn.name === `bound ${effectScopeOper.name}`;
 }
 
-function node(flags, kind) {
-  return {
-    deps: undefined,
-    depsTail: undefined,
-    subs: undefined,
-    subsTail: undefined,
-    flags,
-    kind,
-  };
-}
-
 export function signal(initialValue) {
-  const this$ = node(1, {
-    TAG: "Signal",
+  const this$ = {
     currentValue: initialValue,
     pendingValue: initialValue,
-  });
+    subs: undefined,
+    subsTail: undefined,
+    deps: undefined,
+    depsTail: undefined,
+    flags: 1,
+  };
   return (...value) => signalOper(this$, value);
 }
 
 export function computed(getter) {
-  const this$ = node(0, {
-    TAG: "Computed",
+  const this$ = {
     value: undefined,
     getter,
-  });
+    subs: undefined,
+    subsTail: undefined,
+    deps: undefined,
+    depsTail: undefined,
+    flags: 0,
+  };
   return () => computedOper(this$);
 }
 
 export function effect(fn) {
-  const e = node(2 | 4, {
-    TAG: "Effect",
+  const e = {
     fn,
     cleanup: {},
-  });
+    subs: undefined,
+    subsTail: undefined,
+    deps: undefined,
+    depsTail: undefined,
+    flags: 2 | 4,
+  };
   const prevSub = setActiveSub(e);
   if (prevSub != null) {
     link(e, prevSub, 0);
@@ -177,8 +178,8 @@ export function effect(fn) {
   ];
   runDepth = (runDepth + 1) >>> 0;
   try {
-    if (e.kind.TAG === "Effect") {
-      e.kind.cleanup.value = e.kind.fn();
+    if ("fn" in e) {
+      e.cleanup.value = e.fn();
     }
   } finally {
     finallyDrop_drop(_restore);
@@ -187,7 +188,13 @@ export function effect(fn) {
 }
 
 export function effectScope(fn) {
-  const e = node(1, "EffectScope");
+  const e = {
+    deps: undefined,
+    depsTail: undefined,
+    subs: undefined,
+    subsTail: undefined,
+    flags: 1,
+  };
   const prevSub = setActiveSub(e);
   if (prevSub != null) {
     link(e, prevSub, 0);
@@ -207,7 +214,13 @@ export function effectScope(fn) {
 }
 
 export function trigger(fn) {
-  const sub = node(2 | 4, "EffectScope");
+  const sub = {
+    deps: undefined,
+    depsTail: undefined,
+    subs: undefined,
+    subsTail: undefined,
+    flags: 2 | 4,
+  };
   const prevSub = setActiveSub(sub);
   batchDepth = (batchDepth + 1) >>> 0;
   const _restore = [
@@ -242,7 +255,7 @@ function finallyDrop_drop(finally$, dropF) {
 }
 
 function updateComputed(c) {
-  if (c.kind.TAG !== "Computed") {
+  if (!("getter" in c)) {
     throw new Error("internal error: entered unreachable code");
   }
   if (c.flags & HAS_CHILD_EFFECT) {
@@ -250,7 +263,7 @@ function updateComputed(c) {
     while (link != null) {
       const { value: prev } = $borrow($fieldCell(link, "prevDep"));
       const dep = link.dep;
-      if (dep.kind.TAG === "Effect" || dep.kind === "EffectScope") {
+      if (!("currentValue" in dep) && !("getter" in dep)) {
         unlink(link, c);
       }
       link = prev;
@@ -267,27 +280,27 @@ function updateComputed(c) {
     },
   ];
   cycle = (cycle + 1) >>> 0;
-  const oldValue = c.kind.value;
+  const oldValue = c.value;
   try {
-    c.kind.value = c.kind.getter(oldValue);
-    return oldValue !== c.kind.value;
+    c.value = c.getter(oldValue);
+    return oldValue !== c.value;
   } finally {
     finallyDrop_drop(_restore);
   }
 }
 
 function updateSignal(s) {
-  if (s.kind.TAG !== "Signal") {
+  if (!("currentValue" in s)) {
     throw new Error("internal error: entered unreachable code");
   }
   s.flags = 1;
-  const old = s.kind.currentValue;
-  s.kind.currentValue = s.kind.pendingValue;
-  return old !== s.kind.currentValue;
+  const old = s.currentValue;
+  s.currentValue = s.pendingValue;
+  return old !== s.currentValue;
 }
 
 function run(e) {
-  if (e.kind.TAG !== "Effect") {
+  if (!("fn" in e)) {
     throw new Error("internal error: entered unreachable code");
   }
   const flags = e.flags;
@@ -311,13 +324,13 @@ function run(e) {
     while (link != null) {
       const { value: prev } = $borrow($fieldCell(link, "prevDep"));
       const dep = link.dep;
-      if (dep.kind.TAG === "Effect" || dep.kind === "EffectScope") {
+      if (!("currentValue" in dep) && !("getter" in dep)) {
         unlink(link, e);
       }
       link = prev;
     }
   }
-  if (e.kind.cleanup.value != null) {
+  if (e.cleanup.value != null) {
     runCleanup(e);
     if (e.flags === 0) {
       return;
@@ -337,7 +350,7 @@ function run(e) {
   cycle = (cycle + 1) >>> 0;
   runDepth = (runDepth + 1) >>> 0;
   try {
-    e.kind.cleanup.value = e.kind.fn();
+    e.cleanup.value = e.fn();
   } finally {
     finallyDrop_drop(_restore);
   }
@@ -375,7 +388,7 @@ function flush() {
 }
 
 function computedOper(this$) {
-  if (this$.kind.TAG !== "Computed") {
+  if (!("getter" in this$)) {
     throw new Error("internal error: entered unreachable code");
   }
   const flags = this$.flags;
@@ -400,7 +413,7 @@ function computedOper(this$) {
             },
           ];
           try {
-            this$.kind.value = this$.kind.getter();
+            this$.value = this$.getter();
           } finally {
             finallyDrop_drop(_restore);
           }
@@ -419,17 +432,17 @@ function computedOper(this$) {
   if (sub != null) {
     link(this$, sub, cycle);
   }
-  return this$.kind.value;
+  return this$.value;
 }
 
 function signalOper(this$, value) {
-  if (this$.kind.TAG !== "Signal") {
+  if (!("currentValue" in this$)) {
     throw new Error("internal error: entered unreachable code");
   }
   if (value.length !== 0) {
-    const old = this$.kind.pendingValue;
-    this$.kind.pendingValue = value[0];
-    if (old !== this$.kind.pendingValue) {
+    const old = this$.pendingValue;
+    this$.pendingValue = value[0];
+    if (old !== this$.pendingValue) {
       this$.flags = 1 | 16;
       const { value: subs } = $borrow($fieldCell(this$, "subs"));
       if (subs != null) {
@@ -450,16 +463,16 @@ function signalOper(this$, value) {
     if (sub != null) {
       link(this$, sub, cycle);
     }
-    return this$.kind.currentValue;
+    return this$.currentValue;
   }
 }
 
 function runCleanup(e) {
-  if (e.kind.TAG !== "Effect") {
+  if (!("fn" in e)) {
     throw new Error("internal error: entered unreachable code");
   }
-  const old = e.kind.cleanup.value;
-  e.kind.cleanup.value = undefined;
+  const old = e.cleanup.value;
+  e.cleanup.value = undefined;
   const cleanup = $unwrap(old);
   const prevSub = activeSub;
   activeSub = undefined;
@@ -477,10 +490,10 @@ function runCleanup(e) {
 
 function effectOper(this$) {
   effectScopeOper(this$);
-  if (this$.kind.TAG !== "Effect") {
+  if (!("fn" in this$)) {
     throw new Error("internal error: entered unreachable code");
   }
-  if (this$.kind.cleanup.value != null) {
+  if (this$.cleanup.value != null) {
     runCleanup(this$);
   }
 }

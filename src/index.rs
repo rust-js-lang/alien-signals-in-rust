@@ -19,6 +19,7 @@ pub enum NodeKind {
     },
     Computed {
         value: Cell<Value>,
+        #[cfg_attr(rust_js, rust_js::test)]
         getter: Box<dyn Fn(Value) -> Value>,
     },
     Effect {
@@ -157,47 +158,48 @@ pub fn is_effect_scope(r#fn: &dyn Fn()) -> bool {
     js::function::name(r#fn) == format!("bound {}", js::function::name(&effect_scope_oper))
 }
 
-fn node(flags: i32, kind: NodeKind) -> Node {
-    Rc::new(ReactiveNode {
-        deps: RefCell::new(None),
-        deps_tail: RefCell::new(None),
-        subs: RefCell::new(None),
-        subs_tail: RefCell::new(None),
-        flags: Cell::new(flags),
-        kind,
-    })
-}
-
 pub fn signal(initial_value: Value) -> impl Fn(&dyn Rest<dyn IntoUnknown>) -> Value {
-    let this = node(
-        ReactiveFlags::MUTABLE,
-        NodeKind::Signal {
+    let this = Rc::new(ReactiveNode {
+        kind: NodeKind::Signal {
             current_value: Cell::new(initial_value),
             pending_value: Cell::new(initial_value),
         },
-    );
+        subs: RefCell::new(None),
+        subs_tail: RefCell::new(None),
+        deps: RefCell::new(None),
+        deps_tail: RefCell::new(None),
+        flags: Cell::new(ReactiveFlags::MUTABLE),
+    });
     move |value: &dyn Rest<dyn IntoUnknown>| signal_oper(&this, value)
 }
 
 pub fn computed(getter: impl Fn(Value) -> Value + 'static) -> impl Fn() -> Value {
-    let this = node(
-        ReactiveFlags::NONE,
-        NodeKind::Computed {
+    let this = Rc::new(ReactiveNode {
+        kind: NodeKind::Computed {
             value: Cell::new(None),
             getter: Box::new(getter),
         },
-    );
+        subs: RefCell::new(None),
+        subs_tail: RefCell::new(None),
+        deps: RefCell::new(None),
+        deps_tail: RefCell::new(None),
+        flags: Cell::new(ReactiveFlags::NONE),
+    });
     move || computed_oper(&this)
 }
 
 pub fn effect(r#fn: impl Fn() -> Option<Rc<dyn Fn()>> + 'static) -> impl Fn() {
-    let e = node(
-        ReactiveFlags::WATCHING | ReactiveFlags::RECURSED_CHECK,
-        NodeKind::Effect {
+    let e = Rc::new(ReactiveNode {
+        kind: NodeKind::Effect {
             r#fn: Box::new(r#fn),
             cleanup: RefCell::new(None),
         },
-    );
+        subs: RefCell::new(None),
+        subs_tail: RefCell::new(None),
+        deps: RefCell::new(None),
+        deps_tail: RefCell::new(None),
+        flags: Cell::new(ReactiveFlags::WATCHING | ReactiveFlags::RECURSED_CHECK),
+    });
     let prev_sub = set_active_sub(Some(Rc::clone(&e)));
     if let Some(prev_sub) = &prev_sub {
         link(&e, prev_sub, 0);
@@ -218,7 +220,14 @@ pub fn effect(r#fn: impl Fn() -> Option<Rc<dyn Fn()>> + 'static) -> impl Fn() {
 }
 
 pub fn effect_scope(r#fn: impl Fn()) -> impl Fn() {
-    let e = node(ReactiveFlags::MUTABLE, NodeKind::EffectScope);
+    let e = Rc::new(ReactiveNode {
+        deps: RefCell::new(None),
+        deps_tail: RefCell::new(None),
+        subs: RefCell::new(None),
+        subs_tail: RefCell::new(None),
+        flags: Cell::new(ReactiveFlags::MUTABLE),
+        kind: NodeKind::EffectScope,
+    });
     let prev_sub = set_active_sub(Some(Rc::clone(&e)));
     if let Some(prev_sub) = &prev_sub {
         link(&e, prev_sub, 0);
@@ -232,10 +241,14 @@ pub fn effect_scope(r#fn: impl Fn()) -> impl Fn() {
 }
 
 pub fn trigger(r#fn: impl Fn()) {
-    let sub = node(
-        ReactiveFlags::WATCHING | ReactiveFlags::RECURSED_CHECK,
-        NodeKind::EffectScope,
-    );
+    let sub = Rc::new(ReactiveNode {
+        deps: RefCell::new(None),
+        deps_tail: RefCell::new(None),
+        subs: RefCell::new(None),
+        subs_tail: RefCell::new(None),
+        flags: Cell::new(ReactiveFlags::WATCHING | ReactiveFlags::RECURSED_CHECK),
+        kind: NodeKind::EffectScope,
+    });
     let prev_sub = set_active_sub(Some(Rc::clone(&sub)));
     BATCH_DEPTH.set(BATCH_DEPTH.get() + 1);
     let _restore = Finally(|| {

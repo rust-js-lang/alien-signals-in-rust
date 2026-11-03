@@ -3,18 +3,15 @@
 import type { ReactiveNode } from "./system.js";
 
 export type NodeKind = {
-    TAG: "Signal";
     currentValue: unknown | null | undefined;
     pendingValue: unknown | null | undefined;
 } | {
-    TAG: "Computed";
     value: unknown | null | undefined;
     getter: (value: unknown | null | undefined) => unknown | null | undefined;
 } | {
-    TAG: "Effect";
     fn: () => (() => void) | null | undefined;
     cleanup: any;
-} | "EffectScope";
+} | {};
 
 export function getActiveSub(): ReactiveNode<NodeKind> | null | undefined;
 

@@ -7,6 +7,7 @@ pub struct ReactiveNode<K> {
     pub subs: RefCell<Option<Rc<Link<K>>>>,
     pub subs_tail: RefCell<Option<Rc<Link<K>>>>,
     pub flags: Cell<i32>,
+    #[cfg_attr(rust_js, rust_js::flatten)]
     pub kind: K,
 }
 
