@@ -20,12 +20,24 @@ timed as 100,000 signals, each with one computed and one effect. The
 times are upstream's compiled ESM against the port's `src/index.js` on
 Node 24, on a loaded machine, so compare the ratios.
 
-| | upstream | before rust-js #499 | after #499 |
+The port's time as a multiple of upstream's, each run beside upstream's:
+
+| | before rust-js #499 | after #499 | after #501 and #524 |
 |---|---|---|---|
-| propagate 1×1 | 0.1 µs | 2.8 µs | 0.3 µs |
-| propagate 10×10 | 2.0–3.6 µs | 199 µs | 5.6–6.8 µs |
-| propagate 100×100 | 0.42–0.51 ms | 149 ms | 0.65–0.67 ms |
-| create 100k signal+computed+effect | 44 ms | 1.4–3 s | 86–91 ms |
+| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× |
+| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× |
+| propagate 100×10 | | | 0.9–1.1× |
+| propagate 10×100 | | | 1.2× |
+| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× |
+| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× |
+
+Today's times, upstream then the port: 1×1 0.037–0.043 µs and 0.047–0.060
+µs; 100×100 325–347 µs and 345–419 µs; creating 100k, 24 ms and 33–49 ms.
+
+#524 made `queued[a..b].reverse()` in `notify` a swap in place,
+`$reverseRange(queued, a, b)`, where it had made a `Proxy` view on every
+update. #501 put the `Finally` guards' closures' bodies in their
+`finally` blocks.
 
 Before #499, each momentary `RefCell` borrow of the graph's links was
 checked and counted at runtime (`$borrow`/`$fieldCell`/`$unborrow`, a

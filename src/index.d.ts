@@ -10,7 +10,9 @@ export type NodeKind = {
     getter: (value: unknown | null | undefined) => unknown | null | undefined;
 } | {
     fn: () => (() => void) | null | undefined;
-    cleanup: any;
+    cleanup: {
+        value: (() => void) | null | undefined;
+    };
 } | {};
 
 export function getActiveSub(): ReactiveNode<NodeKind> | null | undefined;
