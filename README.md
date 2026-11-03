@@ -65,18 +65,18 @@ Node 24, on a loaded machine, so compare the ratios.
 
 The port's time as a multiple of upstream's, each run beside upstream's:
 
-| | before rust-js #499 | after #499 | after #501 and #524 | after #500 | after #503 (#542) |
-|---|---|---|---|---|---|
-| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× | 2.3–2.7× |
-| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× | 1.5× |
-| propagate 100×10 | | | 0.9–1.1× | 1.1× | 1.4× |
-| propagate 10×100 | | | 1.2× | 1.05–1.1× | 1.1–1.2× |
-| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× | 1.2× |
-| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× | 3.3× (best of five 5×) |
+| | before rust-js #499 | after #499 | after #501 and #524 | after #500 | after #503 (#542) | after #542 |
+|---|---|---|---|---|---|---|
+| propagate 1×1 (2,000,000 updates) | 28× | 3.5× | 1.3–1.4× | 1.1–1.2× | 2.3–2.7× | 1.05–1.15× |
+| propagate 10×10 | 60–100× | 2–3× | 1.0–1.3× | 1.1× | 1.5× | 1.15× |
+| propagate 100×10 | | | 0.9–1.1× | 1.1× | 1.4× | 1.1–1.15× |
+| propagate 10×100 | | | 1.2× | 1.05–1.1× | 1.1–1.2× | 1.1× |
+| propagate 100×100 | 300× | 1.3–1.6× | 1.0–1.3× | 1.1× | 1.2× | 1.1× |
+| create 100k signal+computed+effect | 30–70× | 2× | 1.4–2× | 1.35× | 3.3× (best of five 5×) | 1.1–1.2× (best of five 0.8×) |
 
-Today's times, upstream then the port: 1×1 0.031–0.032 µs and 0.034–0.037
-µs; 100×100 290–292 µs and 315–317 µs; creating 100k, 20 ms and 27 ms
-(the best of five, 9 ms and 7 ms).
+Today's times (after rust-js #542, 2026-11-04), upstream then the port:
+1×1 0.031 µs and 0.033–0.035 µs; 100×100 279–284 µs and 313–319 µs;
+creating 100k, 19–21 ms and 22–23 ms (the best of five, 9 ms and 7 ms).
 
 #500 made `createReactiveSystem`'s scope struct, `System<K>`, generic over
 the node's kind, its functions: `link`, `propagate` and the rest are
