@@ -9,6 +9,9 @@ license = "MIT"
 description = "The lightest signal library."
 publish = false
 
+[package.metadata.rust-js.test]
+runner = "vitest"
+
 [lib]
 path = "src/index.rs"
 

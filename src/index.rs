@@ -158,7 +158,7 @@ pub fn is_effect_scope(r#fn: &dyn Fn()) -> bool {
     js::function::name(r#fn) == format!("bound {}", js::function::name(&effect_scope_oper))
 }
 
-pub fn signal<T: 'static>(initial_value: T) -> impl Fn(&dyn Rest<Rc<T>>) -> Option<Rc<T>> {
+pub fn signal<T: 'static>(initial_value: T) -> impl Fn(&dyn Rest<Rc<T>>) -> Option<Rc<T>> + Clone {
     let initial_value = Rc::new(initial_value);
     let this = Rc::new(ReactiveNode {
         kind: NodeKind::Signal {
@@ -174,7 +174,9 @@ pub fn signal<T: 'static>(initial_value: T) -> impl Fn(&dyn Rest<Rc<T>>) -> Opti
     move |value: &dyn Rest<Rc<T>>| signal_oper(&this, value)
 }
 
-pub fn computed<T: 'static>(getter: impl Fn(Option<Rc<T>>) -> T + 'static) -> impl Fn() -> Rc<T> {
+pub fn computed<T: 'static>(
+    getter: impl Fn(Option<Rc<T>>) -> T + 'static,
+) -> impl Fn() -> Rc<T> + Clone {
     let this = Rc::new(ReactiveNode {
         kind: NodeKind::Computed {
             value: Cell::new(None),
@@ -194,7 +196,7 @@ pub fn computed<T: 'static>(getter: impl Fn(Option<Rc<T>>) -> T + 'static) -> im
     move || computed_oper::<T>(&this)
 }
 
-pub fn effect(r#fn: impl Fn() -> Option<Rc<dyn Fn()>> + 'static) -> impl Fn() {
+pub fn effect(r#fn: impl Fn() -> Option<Rc<dyn Fn()>> + 'static) -> impl Fn() + Clone {
     let e = Rc::new(ReactiveNode {
         kind: NodeKind::Effect {
             r#fn: Box::new(r#fn),

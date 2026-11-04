@@ -10,7 +10,36 @@ runs against the generated JavaScript.
 ```sh
 node ../rust-js/tooling/cli.js build   # rust-js is a checkout beside this one
 npx vitest run                         # upstream's suite, 202 tests
+node ../rust-js/tooling/cli.js test    # the Rust tests, compiled to JS, under Vitest
 ```
+
+## Tests
+
+Upstream's three library specs are ported to Cargo integration tests, one
+file each: `tests/effect.spec.ts` is `tests/effect.rs`,
+`tests/effectScope.spec.ts` `tests/effect_scope.rs` and
+`tests/trigger.spec.ts` `tests/trigger.rs`. Each `test('…')` is a `#[test]
+fn` named from its sentence, which is its doc comment. `tests/common/mod.rs`
+has the `Log` the cleanup-order tests push to. `rust-js test` compiles them to
+JS, with the library as `rust-js build` compiles it, its JS byte for byte, and
+runs them under Vitest, as `Cargo.toml`'s `[package.metadata.rust-js.test]`
+says: upstream's 21 tests, 21 passing.
+
+`tests/conformance.spec.ts`, a third-party JS suite, and
+`tests/build.spec.ts`, which checks the built bundle, stay JS. So do
+upstream's three specs, beside their ports, which `npx vitest run` runs
+against the generated JavaScript as upstream's own suite.
+
+`cargo test`, native, builds and links, but can't run the library: the 14
+tests that make a signal or a computed panic, and the 7 that make none pass.
+The library keeps its values as JS values, with `js::any_of`, `js::cast` and
+`js::strict_equals`, which are bindings of JavaScript, whose native bodies are
+`unreachable!()`.
+
+In Rust a signal is read `src(&())` and written `src(&(Rc::new(1),))`, as it
+takes rest arguments; `trigger(arr)` is `trigger(|| { arr(&()); })`, as a
+signal isn't an `Fn()`; and `signal`, `computed` and `effect` give
+`impl Fn + Clone`, which each closure that shares one clones.
 
 ## Differences from upstream
 
