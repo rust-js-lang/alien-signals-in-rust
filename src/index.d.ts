@@ -3,11 +3,11 @@
 import type { ReactiveNode } from "./system.js";
 
 export type NodeKind = {
-    currentValue: unknown | null | undefined;
-    pendingValue: unknown | null | undefined;
+    currentValue: unknown;
+    pendingValue: unknown;
 } | {
-    value: unknown | null | undefined;
-    getter: (previous?: unknown | null | undefined) => unknown | null | undefined;
+    value: unknown;
+    getter: (previous?: unknown) => unknown;
 } | {
     fn: () => (() => void) | null | undefined;
     cleanup: (() => void) | null | undefined;
